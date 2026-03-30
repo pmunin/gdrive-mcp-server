@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { authenticate } from "@google-cloud/local-auth";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -12,6 +11,7 @@ import {
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import fs from "fs";
+import http from "http";
 import { google } from "googleapis";
 import path from "path";
 
@@ -227,23 +227,54 @@ const credentialsPath = process.env.MCP_GDRIVE_CREDENTIALS || path.join(process.
 
 async function authenticateAndSaveCredentials() {
   const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(process.cwd(), "credentials", "gcp-oauth.keys.json");
-  
-  console.log("Looking for keys at:", keyPath);
-  console.log("Will save credentials to:", credentialsPath);
-  
-  const auth = await authenticate({
-    keyfilePath: keyPath,
-    scopes: ["https://www.googleapis.com/auth/drive.readonly"],
+
+  process.stderr.write(`Looking for keys at: ${keyPath}\n`);
+  process.stderr.write(`Will save credentials to: ${credentialsPath}\n`);
+
+  const keysContent = JSON.parse(fs.readFileSync(keyPath, "utf-8"));
+  const keys = keysContent.installed || keysContent.web;
+  if (!keys) throw new Error("Invalid OAuth keys file: missing 'installed' or 'web' key");
+
+  const port = parseInt(process.env.OAUTH_PORT || "4242");
+  const redirectUri = `http://localhost:${port}`;
+
+  const oauth2Client = new google.auth.OAuth2(keys.client_id, keys.client_secret, redirectUri);
+
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: "offline",
+    scope: ["https://www.googleapis.com/auth/drive.readonly"],
   });
-  
-  fs.writeFileSync(credentialsPath, JSON.stringify(auth.credentials));
-  console.log("Credentials saved. You can now run the server.");
+
+  process.stderr.write(`\nOpen this URL in your browser to authenticate:\n${authUrl}\n\nWaiting for OAuth callback on port ${port}...\n`);
+
+  const code = await new Promise<string>((resolve, reject) => {
+    const server = http.createServer((req: http.IncomingMessage, res: http.ServerResponse) => {
+      const url = new URL(req.url!, `http://localhost:${port}`);
+      const code = url.searchParams.get("code");
+      if (code) {
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end("<html><body><h1>Authentication successful! You can close this tab.</h1></body></html>");
+        server.close();
+        resolve(code);
+      } else {
+        res.writeHead(400);
+        res.end("No authorization code found");
+        reject(new Error("No authorization code received"));
+      }
+    });
+    server.listen(port, "0.0.0.0");
+    server.on("error", reject);
+  });
+
+  const { tokens } = await oauth2Client.getToken(code);
+  fs.writeFileSync(credentialsPath, JSON.stringify(tokens));
+  process.stderr.write(`\nCredentials saved. You can now run the server.\n`);
 }
 
 async function loadCredentialsAndRunServer() {
   if (!fs.existsSync(credentialsPath)) {
-    console.error(
-      "Credentials not found. Please run with 'auth' argument first.",
+    process.stderr.write(
+      `Credentials not found. To authenticate, run:\n  docker compose run --rm -p 4242:4242 gdrive-mcp-auth\n`
     );
     process.exit(1);
   }
