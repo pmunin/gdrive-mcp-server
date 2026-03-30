@@ -6,6 +6,7 @@ services:
       # Place gcp-oauth.keys.json here before first run.
       # OAuth tokens (.gdrive-server-credentials.json) are also saved here.
     - ${GCP_CREDENTIALS_PATH:-~/.config/gdrive-mcp}:/app/credentials
+    tty: false
 
   gdrive-mcp-auth:
     # For manual re-auth only (e.g. token expired). Stop gdrive-mcp first, then:

@@ -13,18 +13,23 @@ mkdir -p ~/.config/gdrive-mcp
 cp ~/Downloads/client_secret_*.json ~/.config/gdrive-mcp/gcp-oauth.keys.json
 ```
 
-### 2. Authenticate
+### 2. Build the image
 
 ```sh
-docker compose \
-  --profile auth \
-  -f git@github.com:pmunin/gdrive-mcp-server.git \
-  run --rm -p 4242:4242 gdrive-mcp-auth
+docker build -t gdrive-mcp-server git@github.com:pmunin/gdrive-mcp-server.git
+```
+
+### 3. Authenticate
+
+```sh
+docker run --rm -p 4242:4242 \
+  -v ~/.config/gdrive-mcp:/app/credentials \
+  gdrive-mcp-server auth
 ```
 
 Open the URL printed in the terminal, approve access in your browser, and wait for "Credentials saved."
 
-### 3. Add to Claude config
+### 4. Add to Claude config
 
 In `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -34,13 +39,10 @@ In `~/Library/Application Support/Claude/claude_desktop_config.json`:
     "gdrive": {
       "command": "docker",
       "args": [
-        "compose",
-        "-f", "git@github.com:pmunin/gdrive-mcp-server.git",
-        "run", "--rm", "-i", "gdrive-mcp"
-      ],
-      "env": {
-        "GCP_CREDENTIALS_PATH": "/Users/YOUR_USERNAME/.config/gdrive-mcp"
-      }
+        "run", "--rm", "-i",
+        "-v", "/Users/YOUR_USERNAME/.config/gdrive-mcp:/app/credentials",
+        "gdrive-mcp-server"
+      ]
     }
   }
 }
@@ -52,15 +54,22 @@ Restart Claude — the `gdrive_search` and `gdrive_read_file` tools will be avai
 
 ---
 
-## Re-authentication
+## Updating
 
-If your token expires, run auth again (no need to touch Claude config):
+To pull the latest version:
 
 ```sh
-docker compose \
-  --profile auth \
-  -f git@github.com:pmunin/gdrive-mcp-server.git \
-  run --rm -p 4242:4242 gdrive-mcp-auth
+docker build --no-cache -t gdrive-mcp-server git@github.com:pmunin/gdrive-mcp-server.git
+```
+
+## Re-authentication
+
+If your token expires:
+
+```sh
+docker run --rm -p 4242:4242 \
+  -v ~/.config/gdrive-mcp:/app/credentials \
+  gdrive-mcp-server auth
 ```
 
 ---
@@ -133,11 +142,8 @@ git clone git@github.com:pmunin/gdrive-mcp-server.git
 cd gdrive-mcp-server
 npm install && npm run build
 
-# Auth
-node dist/index.js auth
-
-# Run
-node dist/index.js
+node dist/index.js auth  # authenticate
+node dist/index.js       # run server
 ```
 
 ---
