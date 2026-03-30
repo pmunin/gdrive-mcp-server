@@ -17,8 +17,9 @@ cp ~/Downloads/client_secret_*.json ~/.config/gdrive-mcp/gcp-oauth.keys.json
 
 ```sh
 docker compose \
+  --profile auth \
   -f git@github.com:pmunin/gdrive-mcp-server.git \
-  run --rm -p 4242:4242 --profile auth gdrive-mcp-auth
+  run --rm -p 4242:4242 gdrive-mcp-auth
 ```
 
 Open the URL printed in the terminal, approve access in your browser, and wait for "Credentials saved."
@@ -57,8 +58,9 @@ If your token expires, run auth again (no need to touch Claude config):
 
 ```sh
 docker compose \
+  --profile auth \
   -f git@github.com:pmunin/gdrive-mcp-server.git \
-  run --rm -p 4242:4242 --profile auth gdrive-mcp-auth
+  run --rm -p 4242:4242 gdrive-mcp-auth
 ```
 
 ---

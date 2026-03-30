@@ -9,7 +9,7 @@ services:
 
   gdrive-mcp-auth:
     # For manual re-auth only (e.g. token expired). Stop gdrive-mcp first, then:
-    #   docker compose -f <this-file> run --rm -p 4242:4242 --profile auth gdrive-mcp-auth
+    #   docker compose --profile auth -f <this-file> run --rm -p 4242:4242 gdrive-mcp-auth
     build: .
     container_name: gdrive-mcp-auth
     volumes:
