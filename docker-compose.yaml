@@ -1,0 +1,11 @@
+services:
+  gdrive-mcp:
+    build: .
+    container_name: gdrive-mcp-server
+    volumes:
+      # Maps your local config folder to the app's credentials folder
+      # This allows the server to read gcp-oauth.keys.json 
+      # AND write the persistent .gdrive-server-credentials.json token
+    - ${GCP_CREDENTIALS_PATH:-~/.config/gdrive-mcp}:/app/credentials
+    stdin_open: true # Required for the 'auth' command flow
+    tty: true        # Required for the 'auth' command flow
